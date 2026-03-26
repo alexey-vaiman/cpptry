@@ -240,26 +240,45 @@ void initGeometry() {
     Vec3 pv3 = {0.5f, -0.5f, -0.5f};
     Vec3 pv4 = {-0.5f, -0.5f, -0.5f};
 
-    auto addTriangle = [&](Vec3 a, Vec3 b, Vec3 c, Vec3 n) {
+    auto addTriangle = [&](Vec3 a, Vec3 b, Vec3 c, Vec3 n, int n_idx) {
+        float tx = (n_idx % 3) / 3.0f;
+        float ty = (n_idx / 3) / 2.0f;
+        float tw = 1.0f / 3.0f;
+        float th = 1.0f / 2.0f;
         float verts[] = {
-            a.x, a.y, a.z,  0.0f, 0.0f,  n.x, n.y, n.z,
-            b.x, b.y, b.z,  0.0f, 0.0f,  n.x, n.y, n.z,
-            c.x, c.y, c.z,  0.0f, 0.0f,  n.x, n.y, n.z
+            a.x, a.y, a.z,  tx + tw*0.5f, ty + th,  n.x, n.y, n.z,  // tip -> center-top
+            b.x, b.y, b.z,  tx,           ty,        n.x, n.y, n.z,  // base left -> bottom-left
+            c.x, c.y, c.z,  tx + tw,      ty,        n.x, n.y, n.z   // base right -> bottom-right
         };
         for (float f : verts) pvs.push_back(f);
     };
 
-    // Front face normal: cross(pv1-ptip, pv2-ptip)
-    addTriangle(ptip, pv1, pv2, {0.0f, 0.4472f, 0.8944f});
+    // Front face
+    addTriangle(ptip, pv1, pv2, {0.0f, 0.4472f, 0.8944f}, 0);
     // Right face
-    addTriangle(ptip, pv2, pv3, {0.8944f, 0.4472f, 0.0f});
+    addTriangle(ptip, pv2, pv3, {0.8944f, 0.4472f, 0.0f}, 1);
     // Back face
-    addTriangle(ptip, pv3, pv4, {0.0f, 0.4472f, -0.8944f});
+    addTriangle(ptip, pv3, pv4, {0.0f, 0.4472f, -0.8944f}, 2);
     // Left face
-    addTriangle(ptip, pv4, pv1, {-0.8944f, 0.4472f, 0.0f});
-    // Bottom (two triangles)
-    addTriangle(pv1, pv4, pv3, {0.0f, -1.0f, 0.0f});
-    addTriangle(pv1, pv3, pv2, {0.0f, -1.0f, 0.0f});
+    addTriangle(ptip, pv4, pv1, {-0.8944f, 0.4472f, 0.0f}, 3);
+    // Bottom (two triangles with correct square UV mapping)
+    {
+        Vec3 bn = {0.0f, -1.0f, 0.0f};
+        int bi = 4;
+        float btx = (bi % 3) / 3.0f, bty = (bi / 3) / 2.0f;
+        float btw = 1.0f / 3.0f, bth = 1.0f / 2.0f;
+        // v1=BL, v4=TL, v3=TR, v2=BR (looking from below)
+        float bottom[] = {
+            pv1.x, pv1.y, pv1.z, btx,       bty,       bn.x, bn.y, bn.z,
+            pv4.x, pv4.y, pv4.z, btx,       bty + bth, bn.x, bn.y, bn.z,
+            pv3.x, pv3.y, pv3.z, btx + btw, bty + bth, bn.x, bn.y, bn.z,
+
+            pv1.x, pv1.y, pv1.z, btx,       bty,       bn.x, bn.y, bn.z,
+            pv3.x, pv3.y, pv3.z, btx + btw, bty + bth, bn.x, bn.y, bn.z,
+            pv2.x, pv2.y, pv2.z, btx + btw, bty,       bn.x, bn.y, bn.z
+        };
+        for (float f : bottom) pvs.push_back(f);
+    }
 
     glGenVertexArrays(1, &pyramidVAO); glGenBuffers(1, &pyramidVBO);
     glBindVertexArray(pyramidVAO);
@@ -396,18 +415,11 @@ void render() {
     glBindVertexArray(cubeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     
-    // Pyramid (reflection pass) — colored faces, at (2, 2, 0)
-    glUseProgram(solidProgram);
+    // Pyramid (reflection pass) — with lighting, at (2, 2, 0)
     Mat4 pyrModel = translate(identity(), {2.0f, 2.0f, 0.0f});
-    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uProjection"), 1, GL_FALSE, projection.m);
-    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uView"), 1, GL_FALSE, refView.m);
-    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uModel"), 1, GL_FALSE, pyrModel.m);
+    glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "uModel"), 1, GL_FALSE, pyrModel.m);
     glBindVertexArray(pyramidVAO);
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 0.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 0, 3);  // Front - red
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 1.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 3, 3);  // Right - green
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 0.0f, 1.0f); glDrawArrays(GL_TRIANGLES, 6, 3);  // Back - blue
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 9, 3);  // Left - yellow
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 1.0f, 1.0f); glDrawArrays(GL_TRIANGLES, 12, 6); // Bottom - cyan
+    glDrawArrays(GL_TRIANGLES, 0, 18);
     
     // Draw Light Source Helper (Reflection)
     glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 1.0f); // white
@@ -437,17 +449,10 @@ void render() {
     glBindVertexArray(cubeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     
-    // Pyramid (main scene) — colored faces, at (2, 2, 0)
-    glUseProgram(solidProgram);
-    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uProjection"), 1, GL_FALSE, projection.m);
-    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uView"), 1, GL_FALSE, view.m);
-    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uModel"), 1, GL_FALSE, pyrModel.m);
+    // Pyramid (main scene) — with lighting, at (2, 2, 0)
+    glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "uModel"), 1, GL_FALSE, pyrModel.m);
     glBindVertexArray(pyramidVAO);
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 0.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 0, 3);  // Front - red
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 1.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 3, 3);  // Right - green
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 0.0f, 1.0f); glDrawArrays(GL_TRIANGLES, 6, 3);  // Back - blue
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 9, 3);  // Left - yellow
-    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 1.0f, 1.0f); glDrawArrays(GL_TRIANGLES, 12, 6); // Bottom - cyan
+    glDrawArrays(GL_TRIANGLES, 0, 18);
     
     // Light source helper (main scene)
     glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 1.0f);
