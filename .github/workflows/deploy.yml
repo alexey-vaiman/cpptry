@@ -31,13 +31,15 @@ jobs:
             -s ALLOW_MEMORY_GROWTH=1 \
             -O3 \
             --std=c++17
+          
+          # Create deployment folder
+          mkdir -p dist
+          cp index.html index.js index.wasm dist/
+          echo "Build completed. Created dist/ folder."
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
-          folder: .
+          folder: dist
           clean: true
-          # We only need the web files, not the source code, but for a small project this is fine.
-          # To keep it clean, we can selective copy
-          target-folder: .
