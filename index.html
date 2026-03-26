@@ -1,29 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>C++ WebGL Mirror Scene</title>
     <style>
-        body { margin: 0; background-color: #111; color: #eee; font-family: sans-serif; overflow: hidden; }
-        canvas { width: 100vw; height: 100vh; display: block; }
-        #overlay { position: absolute; top: 10px; left: 10px; pointer-events: none; text-shadow: 1px 1px 2px #000; }
+        body {
+            margin: 0;
+            background-color: #111;
+            color: #eee;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+            text-shadow: 1px 1px 2px #000;
+        }
     </style>
 </head>
+
 <body>
     <div id="overlay">
-        <h1>C++ WebGL 2.0 Reflection</h1>
-        <p>Mirror cube with numbers 1-6</p>
+        <h1>C++ / WebGL 2.0 / Web Assembly</h1>
     </div>
     <canvas id="canvas"></canvas>
     <script>
         const canvas = document.getElementById('canvas');
-        
+
         function resizeCanvas() {
             const dpr = window.devicePixelRatio || 1;
             const displayWidth = Math.floor(canvas.clientWidth * dpr);
             const displayHeight = Math.floor(canvas.clientHeight * dpr);
-            
+
             if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
                 canvas.width = displayWidth;
                 canvas.height = displayHeight;
@@ -36,11 +55,12 @@
 
         var Module = {
             canvas: canvas,
-            onRuntimeInitialized: function() {
+            onRuntimeInitialized: function () {
                 console.log('Wasm loaded and initialized.');
             }
         };
     </script>
     <script src="index.js"></script>
 </body>
+
 </html>
