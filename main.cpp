@@ -422,6 +422,8 @@ void render() {
     glDrawArrays(GL_TRIANGLES, 0, 18);
     
     // Draw Light Source Helper (Reflection)
+    glUseProgram(solidProgram);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uProjection"), 1, GL_FALSE, projection.m);
     glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 1.0f); // white
     Mat4 lightModel = scale(translate(identity(), lightPos), {0.2f, 0.2f, 0.2f});
     glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uView"), 1, GL_FALSE, refView.m);
@@ -455,6 +457,9 @@ void render() {
     glDrawArrays(GL_TRIANGLES, 0, 18);
     
     // Light source helper (main scene)
+    glUseProgram(solidProgram);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uProjection"), 1, GL_FALSE, projection.m);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uView"), 1, GL_FALSE, view.m);
     glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 1.0f);
     glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uModel"), 1, GL_FALSE, lightModel.m);
     glBindVertexArray(cubeVAO);
