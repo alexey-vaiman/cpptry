@@ -71,7 +71,7 @@ Mat4 scale(Mat4 m, Vec3 v) {
 
 // Global state
 EMSCRIPTEN_WEBGL_CONTEXT_HANDLE glContext;
-GLuint cubeVAO, cubeVBO, mirrorVAO, mirrorVBO;
+GLuint cubeVAO, cubeVBO, pyramidVAO, pyramidVBO, mirrorVAO, mirrorVBO;
 GLuint cubeProgram, mirrorProgram, solidProgram;
 GLuint cubeTexture, reflectionTexture, reflectionFBO, reflectionDepthRB;
 
@@ -231,6 +231,44 @@ void initGeometry() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float))); glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float))); glEnableVertexAttribArray(2);
 
+    // Pyramid: 4 side triangles + 2 base triangles = 18 vertices
+    // Pos(3), TexCoord(2), Normal(3) — same layout as cube
+    std::vector<float> pvs;
+    Vec3 ptip = {0, 0.5f, 0};
+    Vec3 pv1 = {-0.5f, -0.5f, 0.5f};
+    Vec3 pv2 = {0.5f, -0.5f, 0.5f};
+    Vec3 pv3 = {0.5f, -0.5f, -0.5f};
+    Vec3 pv4 = {-0.5f, -0.5f, -0.5f};
+
+    auto addTriangle = [&](Vec3 a, Vec3 b, Vec3 c, Vec3 n) {
+        float verts[] = {
+            a.x, a.y, a.z,  0.0f, 0.0f,  n.x, n.y, n.z,
+            b.x, b.y, b.z,  0.0f, 0.0f,  n.x, n.y, n.z,
+            c.x, c.y, c.z,  0.0f, 0.0f,  n.x, n.y, n.z
+        };
+        for (float f : verts) pvs.push_back(f);
+    };
+
+    // Front face normal: cross(pv1-ptip, pv2-ptip)
+    addTriangle(ptip, pv1, pv2, {0.0f, 0.4472f, 0.8944f});
+    // Right face
+    addTriangle(ptip, pv2, pv3, {0.8944f, 0.4472f, 0.0f});
+    // Back face
+    addTriangle(ptip, pv3, pv4, {0.0f, 0.4472f, -0.8944f});
+    // Left face
+    addTriangle(ptip, pv4, pv1, {-0.8944f, 0.4472f, 0.0f});
+    // Bottom (two triangles)
+    addTriangle(pv1, pv4, pv3, {0.0f, -1.0f, 0.0f});
+    addTriangle(pv1, pv3, pv2, {0.0f, -1.0f, 0.0f});
+
+    glGenVertexArrays(1, &pyramidVAO); glGenBuffers(1, &pyramidVBO);
+    glBindVertexArray(pyramidVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, pyramidVBO);
+    glBufferData(GL_ARRAY_BUFFER, pvs.size() * sizeof(float), pvs.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0); glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float))); glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float))); glEnableVertexAttribArray(2);
+
     // Mirror Plane
     float mirrorVs[] = {
         -5.0f, 0.0f, -5.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
@@ -358,12 +396,25 @@ void render() {
     glBindVertexArray(cubeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     
-    // Draw Light Source Helper (Reflection)
+    // Pyramid (reflection pass) — colored faces, at (2, 2, 0)
     glUseProgram(solidProgram);
-    Mat4 lightModel = scale(translate(identity(), lightPos), {0.2f, 0.2f, 0.2f});
+    Mat4 pyrModel = translate(identity(), {2.0f, 2.0f, 0.0f});
     glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uProjection"), 1, GL_FALSE, projection.m);
     glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uView"), 1, GL_FALSE, refView.m);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uModel"), 1, GL_FALSE, pyrModel.m);
+    glBindVertexArray(pyramidVAO);
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 0.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 0, 3);  // Front - red
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 1.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 3, 3);  // Right - green
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 0.0f, 1.0f); glDrawArrays(GL_TRIANGLES, 6, 3);  // Back - blue
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 9, 3);  // Left - yellow
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 1.0f, 1.0f); glDrawArrays(GL_TRIANGLES, 12, 6); // Bottom - cyan
+    
+    // Draw Light Source Helper (Reflection)
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 1.0f); // white
+    Mat4 lightModel = scale(translate(identity(), lightPos), {0.2f, 0.2f, 0.2f});
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uView"), 1, GL_FALSE, refView.m);
     glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uModel"), 1, GL_FALSE, lightModel.m);
+    glBindVertexArray(cubeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     
     glFrontFace(GL_CCW);
@@ -383,6 +434,24 @@ void render() {
     glUniform3f(glGetUniformLocation(cubeProgram, "uViewPos"), camPos.x, camPos.y, camPos.z);
     // (uLightPos, uLightColor, uAmbientStrength are already set and program is same)
     
+    glBindVertexArray(cubeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    
+    // Pyramid (main scene) — colored faces, at (2, 2, 0)
+    glUseProgram(solidProgram);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uProjection"), 1, GL_FALSE, projection.m);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uView"), 1, GL_FALSE, view.m);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uModel"), 1, GL_FALSE, pyrModel.m);
+    glBindVertexArray(pyramidVAO);
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 0.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 0, 3);  // Front - red
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 1.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 3, 3);  // Right - green
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 0.0f, 1.0f); glDrawArrays(GL_TRIANGLES, 6, 3);  // Back - blue
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 0.0f); glDrawArrays(GL_TRIANGLES, 9, 3);  // Left - yellow
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 0.0f, 1.0f, 1.0f); glDrawArrays(GL_TRIANGLES, 12, 6); // Bottom - cyan
+    
+    // Light source helper (main scene)
+    glUniform3f(glGetUniformLocation(solidProgram, "uColor"), 1.0f, 1.0f, 1.0f);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uModel"), 1, GL_FALSE, lightModel.m);
     glBindVertexArray(cubeVAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     

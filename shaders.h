@@ -116,12 +116,13 @@ void main() {
 }
 )glsl";
 
-// Simple fragment shader for rendering solid colors (for the light helper)
+// Simple fragment shader for rendering solid colors (with uColor uniform)
 const char* solidFragmentShader = R"glsl(#version 300 es
 precision highp float;
+uniform vec3 uColor;
 out vec4 fragColor;
 void main() {
-    fragColor = vec4(1.0, 1.0, 1.0, 1.0); // Solid white
+    fragColor = vec4(uColor, 1.0);
 }
 )glsl";
 
