@@ -1,0 +1,41 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Emscripten
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install latest
+          ./emsdk activate latest
+          echo "EMSDK_PATH=$(pwd)" >> $GITHUB_ENV
+
+      - name: Build Project
+        run: |
+          source ${{ env.EMSDK_PATH }}/emsdk_env.sh
+          emcc main.cpp -o index.js \
+            -s WASM=1 \
+            -s USE_WEBGL2=1 \
+            -s FULL_ES3=1 \
+            -s ALLOW_MEMORY_GROWTH=1 \
+            -O3 \
+            --std=c++17
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: .
+          clean: true
+          # We only need the web files, not the source code, but for a small project this is fine.
+          # To keep it clean, we can selective copy
+          target-folder: .
