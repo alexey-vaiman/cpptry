@@ -62,11 +62,17 @@ Mat4 rotateY(Mat4 m, float angle) {
     m.m[8] = m0 * s + m8 * c; m.m[9] = m1 * s + m9 * c; m.m[10] = m2 * s + m10 * c; m.m[11] = m3 * s + m11 * c;
     return m;
 }
+Mat4 scale(Mat4 m, Vec3 v) {
+    m.m[0] *= v.x; m.m[1] *= v.x; m.m[2] *= v.x; m.m[3] *= v.x;
+    m.m[4] *= v.y; m.m[5] *= v.y; m.m[6] *= v.y; m.m[7] *= v.y;
+    m.m[8] *= v.z; m.m[9] *= v.z; m.m[10] *= v.z; m.m[11] *= v.z;
+    return m;
+}
 
 // Global state
 EMSCRIPTEN_WEBGL_CONTEXT_HANDLE glContext;
 GLuint cubeVAO, cubeVBO, mirrorVAO, mirrorVBO;
-GLuint cubeProgram, mirrorProgram;
+GLuint cubeProgram, mirrorProgram, solidProgram;
 GLuint cubeTexture, reflectionTexture, reflectionFBO, reflectionDepthRB;
 
 int viewportWidth = 800, viewportHeight = 600;
@@ -285,6 +291,7 @@ void initFBO() {
 }
 
 float cubeAngle = 0.0f;
+float lightAngle = 0.2f;
 
 void render() {
     // Check for canvas resize
@@ -313,7 +320,8 @@ void render() {
     Vec3 up = {0, 1, 0};
     
     // Light circles around the top
-    Vec3 lightPos = { 8.0f * cos(cubeAngle), 10.0f, 8.0f * sin(cubeAngle) };
+    // Vec3 lightPos = { 8.0f * cos(cubeAngle), 10.0f, 8.0f * sin(cubeAngle) };
+    Vec3 lightPos = { 8.0f * cos(lightAngle), 10.0f, 8.0f * sin(lightAngle) };
     Vec3 lightColor = { 1.0f, 1.0f, 1.0f };
     float ambientStrength = 0.4f;
 
@@ -348,6 +356,14 @@ void render() {
 
     glBindTexture(GL_TEXTURE_2D, cubeTexture);
     glBindVertexArray(cubeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    
+    // Draw Light Source Helper (Reflection)
+    glUseProgram(solidProgram);
+    Mat4 lightModel = scale(translate(identity(), lightPos), {0.2f, 0.2f, 0.2f});
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uProjection"), 1, GL_FALSE, projection.m);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uView"), 1, GL_FALSE, refView.m);
+    glUniformMatrix4fv(glGetUniformLocation(solidProgram, "uModel"), 1, GL_FALSE, lightModel.m);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     
     glFrontFace(GL_CCW);
@@ -399,6 +415,7 @@ int main() {
     
     cubeProgram = linkProgram(cubeVertexShader, cubeFragmentShader);
     mirrorProgram = linkProgram(cubeVertexShader, mirrorFragmentShaderReal);
+    solidProgram = linkProgram(cubeVertexShader, solidFragmentShader);
     
     initGeometry();
     cubeTexture = createNumberedTexture();
