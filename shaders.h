@@ -98,8 +98,9 @@ out vec4 fragColor;
 
 void main() {
     vec2 screenUV = gl_FragCoord.xy / uResolution;
-    // Mirror reflection texture
-    vec4 reflectedColor = texture(uReflectionTexture, screenUV);
+    // Invert X because the reflection pass effectively mirrors the scene
+    vec2 flippedUV = vec2(1.0 - screenUV.x, screenUV.y);
+    vec4 reflectedColor = texture(uReflectionTexture, flippedUV);
     
     // Add a procedural grid for perspective
     vec2 gridUV = vFragPos.xz * 2.0; // scale of grid
