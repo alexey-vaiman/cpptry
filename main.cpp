@@ -416,7 +416,7 @@ void render() {
     glDrawArrays(GL_TRIANGLES, 0, 36);
     
     // Pyramid (reflection pass) — with lighting, at (2, 2, 0)
-    Mat4 pyrModel = translate(identity(), {2.0f, 2.0f, 0.0f});
+    Mat4 pyrModel = rotateY(translate(identity(), {2.5f * cosf(cubeAngle), 2.0f, 2.5f * sinf(cubeAngle)}), -cubeAngle * 2.0f);
     glUniformMatrix4fv(glGetUniformLocation(cubeProgram, "uModel"), 1, GL_FALSE, pyrModel.m);
     glBindVertexArray(pyramidVAO);
     glDrawArrays(GL_TRIANGLES, 0, 18);
