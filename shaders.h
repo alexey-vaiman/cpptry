@@ -57,34 +57,7 @@ void main() {
 }
 )glsl";
 
-// Fragment shader for the mirror (using projective mapping)
-const char* mirrorFragmentShader = R"glsl(#version 300 es
-precision highp float;
-in vec2 vTexCoord;
-in vec3 vNormal;
-in vec3 vFragPos;
-
-uniform sampler2D uReflectionTexture;
-uniform vec3 uViewPos;
-
-out vec4 fragColor;
-
-void main() {
-    // In our simplified setup, the mirror captures everything reflected on it
-    // For a simple plane reflection, we use projective coordinate based on gl_FragCoord or computed screen space
-    // Since we're rendering to screen, we can use screen-space UVs
-    vec2 screenUV = gl_FragCoord.xy / vec2(viewportWidth, viewportHeight); // viewportWidth/Height must be uniforms
-    
-    // We'll pass the resolution as uniforms for simplicity in main.cpp
-    // vec4 reflectedColor = texture(uReflectionTexture, screenUV);
-    // fragColor = reflectedColor * 0.8 + vec4(0.1, 0.1, 0.15, 1.0) * 0.2; // Tint slightly
-    
-    // This shader is just a placeholder, in main.cpp we'll provide real projective logic or screen-space mapping
-    fragColor = vec4(0.5, 0.5, 0.5, 1.0); // Fallback color
-}
-)glsl";
-
-// Simple fragment shader for the mirror with real screen-space mapping
+// Simple fragment shader for the mirror with checkerboard + reflection
 const char* mirrorFragmentShaderReal = R"glsl(#version 300 es
 precision highp float;
 in vec2 vTexCoord;
@@ -98,21 +71,18 @@ out vec4 fragColor;
 
 void main() {
     vec2 screenUV = gl_FragCoord.xy / uResolution;
-    // Invert X because the reflection pass effectively mirrors the scene
     vec2 flippedUV = vec2(1.0 - screenUV.x, screenUV.y);
     vec4 reflectedColor = texture(uReflectionTexture, flippedUV);
     
-    // Add a procedural grid for perspective
-    vec2 gridUV = vFragPos.xz * 2.0; // scale of grid
-    vec2 grid = abs(fract(gridUV - 0.5) - 0.5) / fwidth(gridUV);
-    float line = min(grid.x, grid.y);
-    float gridPattern = 1.0 - min(line, 1.0);
+    // Checkerboard pattern
+    vec2 sq = floor(vFragPos.xz * 2.0);
+    float checker = mod(sq.x + sq.y, 2.0);
+    vec4 darkSquare  = vec4(0.08, 0.08, 0.12, 1.0);
+    vec4 lightSquare = vec4(0.25, 0.25, 0.30, 1.0);
+    vec4 boardColor = mix(darkSquare, lightSquare, checker);
     
-    // Mix reflection with grid and floor color
-    vec4 floorColor = vec4(0.05, 0.05, 0.1, 1.0);
-    vec4 finalColor = mix(reflectedColor, floorColor * (1.0 + gridPattern * 0.2), 0.15);
-    
-    fragColor = finalColor;
+    // 50/50 blend: half reflection, half checkerboard
+    fragColor = mix(boardColor, reflectedColor, 0.5);
 }
 )glsl";
 
